@@ -79,8 +79,8 @@ The entire project, including data preprocessing, model building, training, and 
 -  **Confusion Matrix**: Visualizes the performance across all three classes (credible, not credible, undecided).
 
 ## License
-The dataset used in this project does not specify a license. Please respect the usage policies set by the dataset creators.
-The code used in this project
+This Notebook is licensed under the MIT License - see the [LICENSE](https://github.com/Assem-ElQersh/NewsLies/blob/main/LICENSE) file for details.  
+The dataset used in this project does not specify a license. Please review the usage policies set by the dataset creators on Kaggle.
 
 ## Acknowledgements
 Special thanks to the dataset Owners Ashwaq Khalil, Moath Jarrah, and Monther Aldwairi for making the Arabic Fake News Dataset available for research and development.
