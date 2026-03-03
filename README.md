@@ -4,6 +4,7 @@
 
 **Arabic Fake News Detection using LSTM**
 
+![Status](https://img.shields.io/badge/STATUS-UNDER_DEVELOPMENT-orange?style=for-the-badge&logo=github)  
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-blue?style=flat-square)](https://assem-elqersh.github.io/NewsLies/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
