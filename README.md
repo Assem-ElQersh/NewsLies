@@ -1,89 +1,202 @@
 <div align="center">
 
 # NewsLies
-**An Arabic Fake News Detection using LSTM and AraBERT**
+
+**Arabic Fake News Detection using LSTM**
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-blue?style=flat-square)](https://assem-elqersh.github.io/NewsLies/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 </div>
 
-This repository contains a project aimed at detecting fake news in Arabic using advanced Natural Language Processing (NLP) techniques. The project leverages the Arabic Fake News Dataset (AFND) and builds a deep learning model using Long Short-Term Memory (LSTM) networks and AraBERT for text classification.  
-*This model is still under development*
+A deep learning project that classifies Arabic news articles as **credible**, **not credible**, or **undecided**, trained on the Arabic Fake News Dataset (AFND) using a two-layer LSTM model.
 
-## Table of Contents
+> This project is still under development.
 
-- [Dataset](#dataset)
-- [Dataset Structure](#dataset-structure)
-- [Project Structure](#project-structure)
-- [Setup and Installation](#setup-and-installation)
-- [Model Details](#model-details)
-- [Evaluation](#evaluation)
-- [Results](#results)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-- [Contributions](#contributions)
+---
+
+## Live Demo
+
+Try the model directly in your browser — no installation required:
+
+**[https://assem-elqersh.github.io/NewsLies/](https://assem-elqersh.github.io/NewsLies/)**
+
+All inference runs client-side via WebAssembly (ONNX Runtime Web). No data is sent to any server.
+
+---
 
 ## Dataset
 
-The dataset used in this project is the [Arabic Fake News Dataset (AFND)](https://www.kaggle.com/datasets/murtadhayaseen/arabic-fake-news-dataset-afnd/data) from Kaggle. This dataset is a collection of over 600,000 public Arabic news articles collected from 134 different Arabic news websites. The articles are classified into three categories: credible, not credible, and undecided.
+**[Arabic Fake News Dataset (AFND)](https://www.kaggle.com/datasets/murtadhayaseen/arabic-fake-news-dataset-afnd)** — Kaggle
 
-### Dataset Structure
+| | |
+|---|---|
+| Total articles | ~606,000 |
+| News sources | 134 Arabic websites |
+| Labels | `credible` · `not credible` · `undecided` |
+| Source split | 52 credible · 51 not credible · 31 undecided |
 
-- **sources.json**: Contains 134 lines corresponding to 134 public Arabic news websites. The URLs of the websites are anonymized as "source_1", "source_2", etc.
-- **Dataset Directory**: Contains 134 sub-directories named after the anonymous sources. Each sub-directory has a `scraped_articles.json` file, which stores the title, text, and publication date of the articles from that source.
+Each article contains `title`, `text`, and `published date`. Source URLs are anonymized (`source_1` … `source_134`).
 
-### Creators of the Dataset:
-- Ashwaq Khalil
-- Moath Jarrah
-- Monther Aldwairi
+Dataset created by Ashwaq Khalil, Moath Jarrah, and Monther Aldwairi.
+
+---
 
 ## Project Structure
 
-The entire project, including data preprocessing, model building, training, and evaluation, is contained within a single Jupyter notebook:
+```
+NewsLies/
+├── train_tensorflow.py   # TensorFlow/Keras LSTM trainer (CPU only)
+├── train_pytorch.py      # PyTorch LSTM trainer (GPU auto-detected)
+├── export_model.py       # Export trained model to ONNX for the web demo
+├── requirements.txt
+├── docs/                 # GitHub Pages inference app
+│   ├── index.html
+│   ├── js/app.js
+│   ├── model.onnx        # Exported ONNX model (~4 MB)
+│   ├── vocab.json        # Tokenizer vocabulary
+│   └── stopwords.json    # Arabic stopwords
+└── data/                 # Dataset (not tracked — download separately)
+    └── AFND/
+        ├── sources.json
+        └── Dataset/
+            └── source_N/
+                └── scraped_articles.json
+```
 
-- `NewsLies.ipynb`: This notebook includes:
-  - **Data Preprocessing**: Advanced text preprocessing including text normalization, stopword removal, and stemming using Farasa and ISRIStemmer.
-  - **Model Definition**: LSTM-based model architecture with AraBERT embeddings and an attention mechanism for improved classification.
-  - **Model Training**: Training the model on the Arabic Fake News Dataset, along with evaluation of its performance.
-  - **Inference**: Running the trained model on new Arabic news articles to classify them.
+---
 
-## Setup and Installation
+## Setup
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Assem-ElQersh/NewsLies.git
-   cd NewsLies
-   ```
-2. Install the required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Download the dataset from Kaggle and place it in the data/ directory.
-4. Open the Jupyter Notebook:
-   ```bash
-   jupyter notebook NewsLies.ipynb
-   ```
-5. Run the cells in the notebook sequentially to preprocess the data, train the model, and perform inference.
+### 1. Create environment (Python 3.11 required for TF 2.14)
 
-## Model Details
+```bash
+conda create -n newslies python=3.11 -y
+conda activate newslies
+pip install -r requirements.txt
+```
 
--  **Preprocessing**: The text is normalized, diacritics and special characters are removed, and stemming is performed using Farasa tools.
--  **Embedding Layer**: AraBERT is used to generate dynamic embeddings for Arabic text.
--  **LSTM Layers**: The model contains multiple LSTM layers to capture the temporal dependencies in the text.
--  **Attention Mechanism**: An attention layer is added to focus on the most important parts of the text.
--  **Output Layer**: The output is a softmax layer for multi-class classification.
+For GPU support with PyTorch (recommended — uses your NVIDIA GPU automatically):
 
-## Evaluation
-  The model is evaluated on the test set using accuracy, precision, recall, and F1-score. A confusion matrix is also provided for a detailed view of the model's performance.
+```bash
+# Check CUDA version with: nvidia-smi
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+```
 
-## Results
--  **Accuracy**: The model achieves high accuracy in detecting fake news articles, with detailed metrics provided in the results section.
--  **Confusion Matrix**: Visualizes the performance across all three classes (credible, not credible, undecided).
+### 2. Download NLTK stopwords
+
+```bash
+python -c "import nltk; nltk.download('stopwords')"
+```
+
+### 3. Download the dataset
+
+```bash
+pip install kaggle
+# Place your ~/.kaggle/kaggle.json credentials first
+kaggle datasets download -d murtadhayaseen/arabic-fake-news-dataset-afnd -p data --unzip
+```
+
+---
+
+## Training
+
+### PyTorch — uses GPU automatically
+
+```bash
+python train_pytorch.py --data-dir data/AFND
+```
+
+### TensorFlow — CPU only (TF 2.14 requires CUDA 11.x)
+
+```bash
+python train_tensorflow.py --data-dir data/AFND
+```
+
+Both scripts accept `--data-dir` or the `AFND_DATA_DIR` environment variable. Outputs are saved to `outputs/`.
+
+---
+
+## Model
+
+### Architecture
+
+```
+Input tokens (padded to 128)
+    ↓
+Embedding  (10,000 vocab × 100 dims)
+    ↓
+SpatialDropout1D  (p = 0.2)
+    ↓
+LSTM  (64 units, return sequences)
+    ↓
+LSTM  (64 units)
+    ↓
+Dense / Linear  (3 classes, softmax)
+    ↓
+credible | not credible | undecided
+```
+
+### Hyperparameters
+
+| Parameter | Value |
+|---|---|
+| Vocabulary size | 10,000 |
+| Sequence length | 128 |
+| Embedding dim | 100 |
+| LSTM units | 64 |
+| Dropout | 0.2 |
+| Batch size | 64 |
+| Learning rate | 1e-4 |
+| Early stopping patience | 2 |
+
+### Text preprocessing
+
+Raw text → lowercase → Arabic stopword removal (NLTK) → ISRI stemming
+
+### Results
+
+| Metric | Value |
+|---|---|
+| Test accuracy | 70.3% |
+| Credible F1 | 0.73 |
+| Not Credible F1 | 0.58 |
+| Undecided F1 | 0.75 |
+
+Trained on 388k articles, validated on 97k, tested on 121k.
+
+---
+
+## GPU vs CPU
+
+| Script | Device | Notes |
+|---|---|---|
+| `train_pytorch.py` | GPU (auto-detected) | Works with CUDA 12+ / 13 |
+| `train_tensorflow.py` | CPU only | TF 2.14 requires CUDA 11.x |
+
+---
+
+## Deploying the Web Demo
+
+After training, export the model and deploy to GitHub Pages:
+
+```bash
+# 1. Export ONNX model + vocab + stopwords to docs/
+pip install onnx onnxruntime
+python export_model.py
+
+# 2. Commit and push
+git add docs/
+git commit -m "update web demo"
+git push
+```
+
+Then enable GitHub Pages: **Settings → Pages → Source: main branch, /docs folder**.
+
+---
 
 ## License
-This Notebook is licensed under the MIT License - see the [LICENSE](https://github.com/Assem-ElQersh/NewsLies/blob/main/LICENSE) file for details.  
-The dataset used in this project does not specify a license. Please review the usage policies set by the dataset creators on Kaggle.
 
-## Acknowledgements
-Special thanks to the dataset Owners Ashwaq Khalil, Moath Jarrah, and Monther Aldwairi for making the Arabic Fake News Dataset available for research and development.
+MIT License — see [LICENSE](LICENSE).
 
-## Contributions
-Contributions are welcome! Feel free to open an issue or submit a pull request.
+The AFND dataset does not specify a license. Review the usage terms set by the dataset creators before any commercial use.
