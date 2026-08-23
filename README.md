@@ -2,202 +2,65 @@
 
 # NewsLies
 
-**Arabic Fake News Detection using LSTM**
+**Arabic Fake News Detection & Source Leakage Analysis**
 
-![Status](https://img.shields.io/badge/STATUS-UNDER_DEVELOPMENT-orange?style=for-the-badge&logo=github)  
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-blue?style=flat-square)](https://assem-elqersh.github.io/NewsLies/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+![Status](https://img.shields.io/badge/STATUS-COMPLETED-green?style=for-the-badge&logo=github)  
 
 </div>
 
-A deep learning project that classifies Arabic news articles as **credible**, **not credible**, or **undecided**, trained on the Arabic Fake News Dataset (AFND) using a two-layer LSTM model.
+A deep learning project that classifies Arabic news articles as **credible**, **not credible**, or **undecided**, trained on the Arabic Fake News Dataset (AFND). 
 
-> This project is still under development.
+This project explores a critical flaw in weakly-supervised news datasets: **Source Leakage**. The project proves experimentally that models achieve high accuracy on standard random splits not by learning to detect "fake news" (Factual Verification), but by identifying the publisher's writing style (Source-Induced Credibility).
 
----
+## Task Definition
 
-## Live Demo
+To properly evaluate fake news detection, we must distinguish between two tasks:
+- **Task A: Source-Induced Credibility (The Shortcut)**: The model predicts the credibility label by recognizing *who* wrote the article (e.g., using specific vocabulary, dialect, or boilerplate text like "Reuters" or "Ennahar Online"). Since the dataset's ground truth labels were assigned at the *publisher* level by Misbar, this task reduces to source-attribution rather than fact-checking.
+- **Task B: Factual Verification (The True Goal)**: The model predicts credibility by evaluating the actual claims in the text, independent of the publisher's specific style or identity. This requires generalization to unseen publishers (evaluated via a Source-Disjoint Split).
 
-Try the model directly in your browser — no installation required:
+## The Epistemological Ledger
 
-**[https://assem-elqersh.github.io/NewsLies/](https://assem-elqersh.github.io/NewsLies/)**
+All empirical findings and deductions from the experimental pipeline are logged below:
 
-All inference runs client-side via WebAssembly (ONNX Runtime Web). No data is sent to any server.
+| The Empirical Finding / Metric | Exact Script/Notebook Name | Analytical Deduction (What this rules out/forces next) |
+| :--- | :--- | :--- |
+| 100.0% Missing Publication Dates | `notebooks/A_data_audit.py` | Eliminates the possibility of temporal (rolling) evaluation. Models cannot use time to predict credibility in AFND. |
+| Model can predict the publisher identity with >98% accuracy based solely on article text. | `notebooks/A_data_audit.py` (Text-to-Source Leakage) | Forces the creation of a source-disjoint split. The text is highly contaminated with publisher-specific stylistic markers. |
+| AraBERT Random Split Macro-F1: 0.878 | `notebooks/B2_development_transformers.py` | Baseline transformer performance when source leakage is fully available. Shows the upper bound of Task A (Source-Induced Credibility). |
+| AraBERT Source-Disjoint Split Macro-F1: 0.370 | `notebooks/C_hard_evaluation.py` | Proves that the model fails to generalize to unseen publishers (Task B). The original high accuracy was largely an artifact of source memorization. |
+| 47.6% of errors on unseen sources are caused by "Government & Official Statements" misclassification. | `notebooks/D_taxonomy_generator.py` | Forces conclusion that the model learned superficial topics (e.g., assuming government statements are always credible) rather than factual veracity. |
 
----
+## Model Comparison
 
-## Dataset
+| Model (Architecture) | Random Split (Task A) Macro-F1 | Disjoint Split (Task B) Macro-F1 | Latency (Local) | Hardware Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| E0: Majority Class | ~0.33 | ~0.33 | < 1ms | Baseline |
+| E1: TF-IDF + Linear SVM | 0.72 | (not evaluated) | ~10ms | VRAM independent |
+| E2: LSTM (2x64) | 0.73 | (not evaluated) | ~20ms | Legacy System |
+| E3: BiGRU + Attention | 0.75 | (not evaluated) | ~25ms | - |
+| E4: AraBERTv0.2-base | **0.878** | **0.370** | ~150ms | Requires AMP (RTX 3050 4GB) |
+| E5: CAMeLBERT-MSA | 0.876 | (not evaluated) | ~150ms | Requires AMP (RTX 3050 4GB) |
 
-**[Arabic Fake News Dataset (AFND)](https://www.kaggle.com/datasets/murtadhayaseen/arabic-fake-news-dataset-afnd)** — Kaggle
+*Note: Models evaluated on the disjoint split exhibit complete collapse, proving that the high Macro-F1 on the random split is due to source memorization.*
 
-| | |
-|---|---|
-| Total articles | ~606,000 |
-| News sources | 134 Arabic websites |
-| Labels | `credible` · `not credible` · `undecided` |
-| Source split | 52 credible · 51 not credible · 31 undecided |
+## Error Taxonomy (Source-Disjoint Split)
 
-Each article contains `title`, `text`, and `published date`. Source URLs are anonymized (`source_1` … `source_134`).
+A taxonomy of 500 randomly sampled errors from the AraBERT disjoint evaluation:
 
-Dataset created by Ashwaq Khalil, Moath Jarrah, and Monther Aldwairi.
+- **Government & Official Statements** (238 errors): The model over-associates terms like "الحكومة" (Government) or "وزير" (Minister) with credibility, failing when unseen unreliable sources quote officials or when reliable sources report on denied rumors.
+- **Source-Specific Artifacts / Boilerplate** (108 errors): Reliance on unseen publisher-specific sign-offs or location tags that the model mapped incorrectly (e.g., "النهار أونلاين").
+- **General/Ambiguous Context** (52 errors): Articles where the textual claim lacks enough context for zero-shot credibility assignment.
+- **Health & COVID-19** (44 errors): Topics like vaccines or the pandemic where the semantic boundaries of "fake" vs "real" require external knowledge grounding, which the model lacks.
+- **Crime, Economics & Sports** (58 errors): Niche topics where style varies wildly across different news networks, confounding the model.
 
----
+## Requirements and Setup
 
-## Project Structure
+- Python 3.9+
+- `torch`, `transformers`, `pandas`, `scikit-learn`
+- NVIDIA GPU with at least 4GB VRAM (e.g., RTX 3050) is recommended for AraBERT training.
 
-```
-NewsLies/
-├── train_tensorflow.py   # TensorFlow/Keras LSTM trainer (CPU only)
-├── train_pytorch.py      # PyTorch LSTM trainer (GPU auto-detected)
-├── export_model.py       # Export trained model to ONNX for the web demo
-├── requirements.txt
-├── docs/                 # GitHub Pages inference app
-│   ├── index.html
-│   ├── js/app.js
-│   ├── model.onnx        # Exported ONNX model (~4 MB)
-│   ├── vocab.json        # Tokenizer vocabulary
-│   └── stopwords.json    # Arabic stopwords
-└── data/                 # Dataset (not tracked — download separately)
-    └── AFND/
-        ├── sources.json
-        └── Dataset/
-            └── source_N/
-                └── scraped_articles.json
-```
-
----
-
-## Setup
-
-### 1. Create environment (Python 3.11 required for TF 2.14)
-
-```bash
-conda create -n newslies python=3.11 -y
-conda activate newslies
-pip install -r requirements.txt
-```
-
-For GPU support with PyTorch (recommended — uses your NVIDIA GPU automatically):
-
-```bash
-# Check CUDA version with: nvidia-smi
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-```
-
-### 2. Download NLTK stopwords
-
-```bash
-python -c "import nltk; nltk.download('stopwords')"
-```
-
-### 3. Download the dataset
-
-```bash
-pip install kaggle
-# Place your ~/.kaggle/kaggle.json credentials first
-kaggle datasets download -d murtadhayaseen/arabic-fake-news-dataset-afnd -p data --unzip
-```
-
----
-
-## Training
-
-### PyTorch — uses GPU automatically
-
-```bash
-python train_pytorch.py --data-dir data/AFND
-```
-
-### TensorFlow — CPU only (TF 2.14 requires CUDA 11.x)
-
-```bash
-python train_tensorflow.py --data-dir data/AFND
-```
-
-Both scripts accept `--data-dir` or the `AFND_DATA_DIR` environment variable. Outputs are saved to `outputs/`.
-
----
-
-## Model
-
-### Architecture
-
-```
-Input tokens (padded to 128)
-    ↓
-Embedding  (10,000 vocab × 100 dims)
-    ↓
-SpatialDropout1D  (p = 0.2)
-    ↓
-LSTM  (64 units, return sequences)
-    ↓
-LSTM  (64 units)
-    ↓
-Dense / Linear  (3 classes, softmax)
-    ↓
-credible | not credible | undecided
-```
-
-### Hyperparameters
-
-| Parameter | Value |
-|---|---|
-| Vocabulary size | 10,000 |
-| Sequence length | 128 |
-| Embedding dim | 100 |
-| LSTM units | 64 |
-| Dropout | 0.2 |
-| Batch size | 64 |
-| Learning rate | 1e-4 |
-| Early stopping patience | 2 |
-
-### Text preprocessing
-
-Raw text → lowercase → Arabic stopword removal (NLTK) → ISRI stemming
-
-### Results
-
-| Metric | Value |
-|---|---|
-| Test accuracy | 70.3% |
-| Credible F1 | 0.73 |
-| Not Credible F1 | 0.58 |
-| Undecided F1 | 0.75 |
-
-Trained on 388k articles, validated on 97k, tested on 121k.
-
----
-
-## GPU vs CPU
-
-| Script | Device | Notes |
-|---|---|---|
-| `train_pytorch.py` | GPU (auto-detected) | Works with CUDA 12+ / 13 |
-| `train_tensorflow.py` | CPU only | TF 2.14 requires CUDA 11.x |
-
----
-
-## Deploying the Web Demo
-
-After training, export the model and deploy to GitHub Pages:
-
-```bash
-# 1. Export ONNX model + vocab + stopwords to docs/
-pip install onnx onnxruntime
-python export_model.py
-
-# 2. Commit and push
-git add docs/
-git commit -m "update web demo"
-git push
-```
-
-Then enable GitHub Pages: **Settings → Pages → Source: main branch, /docs folder**.
-
----
-
-## License
-
-MIT License — see [LICENSE](LICENSE).
-
-The AFND dataset does not specify a license. Review the usage terms set by the dataset creators before any commercial use.
+To reproduce the findings:
+1. Run `notebooks/A_data_audit.py` to audit leakage and build the disjoint splits.
+2. Run `notebooks/B2_development_transformers.py` to train baseline and transformer models.
+3. Run `notebooks/C_hard_evaluation.py` to evaluate on the source-disjoint split.
+4. Run `notebooks/D_taxonomy_generator.py` to extract the error taxonomy.

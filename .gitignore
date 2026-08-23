@@ -46,3 +46,4 @@ test_*.png
 
 # NOTE: docs/ is intentionally tracked — it contains the
 # GitHub Pages site and the exported ONNX model.
+experiments/*.pt

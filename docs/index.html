@@ -288,10 +288,15 @@
   <div class="logo">📰</div>
   <div>
     <h1>NewsLies</h1>
-    <p>Arabic Fake News Detector</p>
+    <p>Arabic Fake News & Source Leakage Demo</p>
   </div>
-  <div class="badge">Model: <span>LSTM · 70% acc</span></div>
+  <div class="badge">Model: <span>LSTM (Source-Biased)</span></div>
 </header>
+
+<div style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--red); border-radius: var(--radius); padding: 16px; margin: 24px auto 0; max-width: 780px; text-align: center;">
+  <strong style="color: var(--red);">⚠️ Research Warning: The Source Leakage Illusion</strong><br>
+  <span style="font-size: 0.85rem; color: var(--text);">Our research proved that models trained on the AFND dataset do not learn to fact-check. Instead, they memorize publisher writing styles. This demo model scores 70% on random data, but collapses to 37% when tested on unseen publishers. <strong>Try it yourself:</strong> Notice how the model focuses on source names and boilerplate rather than factual claims.</span>
+</div>
 
 <main>
 
@@ -338,29 +343,30 @@
 
   <!-- About card -->
   <div class="card">
-    <div class="card-title">About this model</div>
+    <div class="card-title">About this Research</div>
     <div class="info-grid">
       <div class="info-item">
-        <div class="val">606k</div>
-        <div class="lbl">Training articles</div>
+        <div class="val">87.8%</div>
+        <div class="lbl">AraBERT Random F1</div>
       </div>
       <div class="info-item">
-        <div class="val">134</div>
-        <div class="lbl">Arabic news sources</div>
+        <div class="val" style="color: var(--red)">37.0%</div>
+        <div class="lbl">AraBERT Disjoint F1</div>
       </div>
       <div class="info-item">
         <div class="val">70%</div>
-        <div class="lbl">Test accuracy</div>
+        <div class="lbl">LSTM Demo Acc</div>
       </div>
       <div class="info-item">
-        <div class="val">LSTM</div>
-        <div class="lbl">Architecture</div>
+        <div class="val">Leakage</div>
+        <div class="lbl">Primary Flaw</div>
       </div>
     </div>
     <p style="margin-top:16px; font-size:.82rem; color:var(--muted); line-height:1.6;">
-      Trained on the <strong style="color:var(--text)">AFND dataset</strong> using a two-layer LSTM with Arabic stopword removal and ISRI stemming.
-      All inference runs locally in your browser — no data is sent to any server.
-      <a href="https://github.com/Assem-ElQersh/NewsLies" target="_blank" rel="noopener">View source on GitHub →</a>
+      This project audited the <strong style="color:var(--text)">AFND dataset</strong> and discovered catastrophic source leakage. The models associate words like "الحكومة" (Government) or publisher names with credibility, failing entirely on unseen sources.
+      The web demo uses the legacy LSTM for browser compatibility.
+      <br><br>
+      <a href="https://github.com/Assem-ElQersh/NewsLies" target="_blank" rel="noopener">Read the full research paper on GitHub →</a>
     </p>
   </div>
 
