@@ -47,5 +47,15 @@ test_*.png
 *.log
 
 # NOTE: docs/ is intentionally tracked — it contains the
-# GitHub Pages site and the exported ONNX model.
-experiments/*.pt
+# GitHub Pages site.
+
+# ── Models (must be uploaded via GitHub Releases) ──────────────
+*.pt
+*.pth
+*.bin
+*.onnx
+*.onnx.data
+*.h5
+*.safetensors
+*.tflite
+*.pb

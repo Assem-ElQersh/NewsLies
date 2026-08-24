@@ -290,7 +290,7 @@
     <h1>NewsLies</h1>
     <p>Arabic Fake News & Source Leakage Demo</p>
   </div>
-  <div class="badge">Model: <span>LSTM (Source-Biased)</span></div>
+  <div class="badge">Model: <span>AraBERT v0.2</span></div>
 </header>
 
 <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--red); border-radius: var(--radius); padding: 16px; margin: 24px auto 0; max-width: 780px; text-align: center;">
@@ -350,12 +350,12 @@
         <div class="lbl">AraBERT Random F1</div>
       </div>
       <div class="info-item">
-        <div class="val" style="color: var(--red)">37.0%</div>
+        <div class="val" style="color: var(--red)">38.1%</div>
         <div class="lbl">AraBERT Disjoint F1</div>
       </div>
       <div class="info-item">
-        <div class="val">70%</div>
-        <div class="lbl">LSTM Demo Acc</div>
+        <div class="val">38%</div>
+        <div class="lbl">Live Demo Acc</div>
       </div>
       <div class="info-item">
         <div class="val">Leakage</div>
@@ -364,7 +364,7 @@
     </div>
     <p style="margin-top:16px; font-size:.82rem; color:var(--muted); line-height:1.6;">
       This project audited the <strong style="color:var(--text)">AFND dataset</strong> and discovered catastrophic source leakage. The models associate words like "الحكومة" (Government) or publisher names with credibility, failing entirely on unseen sources.
-      The web demo uses the legacy LSTM for browser compatibility.
+      The web demo natively runs the AraBERT ONNX model in your browser via Hugging Face.
       <br><br>
       <a href="https://github.com/Assem-ElQersh/NewsLies" target="_blank" rel="noopener">Read the full research paper on GitHub →</a>
     </p>
@@ -379,6 +379,6 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
-<script src="js/app.js"></script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
