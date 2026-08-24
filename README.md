@@ -28,6 +28,7 @@ All empirical findings and deductions from the experimental pipeline are logged 
 | Model can predict the publisher identity with >98% accuracy based solely on article text. | `notebooks/A_data_audit.py` (Text-to-Source Leakage) | Forces the creation of a source-disjoint split. The text is highly contaminated with publisher-specific stylistic markers. |
 | AraBERT Random Split Macro-F1: 0.878 | `notebooks/B2_development_transformers.py` | Baseline transformer performance when source leakage is fully available. Shows the upper bound of Task A (Source-Induced Credibility). |
 | AraBERT Source-Disjoint Split Macro-F1: 0.370 | `notebooks/C_hard_evaluation.py` | Proves that the model fails to generalize to unseen publishers (Task B). The original high accuracy was largely an artifact of source memorization. |
+| AraBERT 10-Epoch Source-Disjoint Accuracy: 0.381 | `notebooks/AFND_End_to_End_Kaggle.ipynb` | Proves that extended 10-epoch training fails to prevent Source-Induced Credibility collapse. The model still fundamentally memorizes source artifacts. |
 | 47.6% of errors on unseen sources are caused by "Government & Official Statements" misclassification. | `notebooks/D_taxonomy_generator.py` | Forces conclusion that the model learned superficial topics (e.g., assuming government statements are always credible) rather than factual veracity. |
 
 ## Model Comparison
