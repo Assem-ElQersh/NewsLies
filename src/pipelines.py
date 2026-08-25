@@ -8,6 +8,7 @@ Kaggle-aware path resolution:
 """
 import json
 import os
+from collections import Counter
 from pathlib import Path
 
 
@@ -25,7 +26,7 @@ def find_root() -> Path:
 ROOT = find_root()
 
 
-def ctx():
+def ctx(require_splits=False):
     root = ROOT
     os.chdir(root)
     if str(root) not in __import__("sys").path:
@@ -42,11 +43,12 @@ def ctx():
     ]
     splits_dir = next((c for c in candidates if c and Path(c, "train_rand.parquet").exists()),
                       None)
-    if splits_dir is None:
+    if splits_dir is None and require_splits:
         raise FileNotFoundError(
             "Split parquets not found. Attach 'afnd-splits-v2' dataset on Kaggle "
             "or set NEWLIES_SPLITS_DIR (run stage K1 first).")
-    return {"root": root, "out_dir": out_dir, "splits_dir": Path(splits_dir),
+    return {"root": root, "out_dir": out_dir,
+            "splits_dir": Path(splits_dir) if splits_dir else None,
             "device": __import__("torch").device("cuda" if __import__("torch").cuda.is_available() else "cpu")}
 
 
@@ -68,7 +70,8 @@ def _load_splits(splits_dir: Path, kinds=("rand", "src")):
 
 
 # ---------------------------------------------------------------- audits ----
-def run_audit(base_path=None, out_dir="experiments/data_audit", sample_near_dup=None):
+def run_audit(base_path=None, out_dir="experiments/data_audit", sample_near_dup=None,
+              resume_near_dup=True):
     """Full raw-data audit: dates, duplicates (exact + near-dup), plots, reports."""
     import matplotlib
     matplotlib.use("Agg")
@@ -94,10 +97,32 @@ def run_audit(base_path=None, out_dir="experiments/data_audit", sample_near_dup=
     exact_rep = exact_duplicate_audit(df, assign=True)
     df = exact_rep["frame"]
 
-    nd_rep = near_duplicate_audit_fast(df, threshold=0.8, num_perm=128, rows_per_band=8,
-                                       sample=sample_near_dup,
-                                       persist_path=str(out / "near_dup_clusters.parquet"))
-    df = nd_rep["frame"]
+    nd_cache = out / "near_dup_clusters.parquet"
+    if resume_near_dup and nd_cache.exists():
+        print(f"Resuming near-dup annotations from cache: {nd_cache}")
+        cached = pd.read_parquet(nd_cache)
+        assert len(cached) == len(df), (
+            f"Cache length {len(cached)} != current corpus {len(df)}; "
+            "delete the cache file to force a full recomputation.")
+        df = df.copy()
+        df["near_duplicate_cluster_id"] = cached["near_duplicate_cluster_id"].to_numpy()
+        sizes = Counter(cached["near_duplicate_cluster_id"].tolist())
+        multi = {cid: n for cid, n in sizes.items() if cid >= 0 and n > 1}
+        nd_rep = {
+            "articles_audited": len(df), "method": "resumed_from_cache",
+            "lsh_candidate_pairs": None, "verified_pairs": None,
+            "near_duplicate_clusters": len(multi),
+            "articles_in_clusters": int(sum(multi.values())),
+            "redundant_articles_if_keep_first": int(sum(n - 1 for n in multi.values())),
+            "threshold": 0.8, "num_perm": 128,
+        }
+        print(f"Near-dup clusters (cached): {len(multi)} covering "
+              f"{nd_rep['articles_in_clusters']} articles.")
+    else:
+        nd_rep = near_duplicate_audit_fast(df, threshold=0.8, num_perm=128,
+                                           rows_per_band=8, sample=sample_near_dup,
+                                           persist_path=str(nd_cache))
+    df = nd_rep.get("frame", df)
 
     def plot(fig, name):
         fig.tight_layout(); fig.savefig(out / name, dpi=150); plt.close(fig)
@@ -147,8 +172,9 @@ def run_audit(base_path=None, out_dir="experiments/data_audit", sample_near_dup=
 
 Duplicates are annotated, never silently deleted; splits treat clusters as atomic units.
 """)
-    df.to_parquet(Path(ctx()["out_dir"]) / "_annotated_full.parquet", index=False)
-    print("Audit complete:", report)
+    annotated_path = Path(out_dir).parent / "_annotated_full.parquet"
+    df.to_parquet(annotated_path, index=False)
+    print(f"Audit complete. Annotated corpus: {annotated_path}")
     return report
 
 
@@ -163,7 +189,17 @@ def generate_splits(seed=42, out_dir=None, num_candidates=500, class_tolerance=0
 
     out_dir = Path(out_dir or (ctx()["out_dir"]))
     out_dir.mkdir(parents=True, exist_ok=True)
-    df = pd.read_parquet(out_dir / "_annotated_full.parquet")
+    candidates_annotated = [
+        out_dir / "_annotated_full.parquet",
+        out_dir.parent / "_annotated_full.parquet",
+        ROOT / "data" / "splits" / "_annotated_full.parquet",
+    ]
+    annotated = next((c for c in candidates_annotated if c.exists()), None)
+    if annotated is None:
+        raise FileNotFoundError(
+            f"_annotated_full.parquet not found in {[str(c) for c in candidates_annotated]}. "
+            "Run run_audit (stage K1 step 1) first.")
+    df = pd.read_parquet(annotated)
 
     train_rand, val_rand, test_rand = random_split(df, seed=seed)
     train_src, val_src, test_src = source_disjoint_split(
@@ -219,7 +255,7 @@ def train_transformer(model_name, split_kind, max_length, seed=42, epochs=3,
     from src.training.seed import seed_everything
     from src.evaluation.metrics import compute_metrics
 
-    env = ctx()
+    env = ctx(require_splits=True)
     device = env["device"]
     seed_everything(seed)
 
@@ -294,7 +330,7 @@ def calibrate_checkpoint(checkpoint, model_name, split_kind="src", out_dir=None)
     from src.models.transformer_clf import TransformerClassifier
     from src.evaluation.calibration import calibration_report
 
-    env = ctx()
+    env = ctx(require_splits=True)
     device = env["device"]
     out_dir = Path(out_dir or env["out_dir"] / "calibration")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -346,7 +382,7 @@ def distill_bigru_student(teacher_ckpt, teacher_name, alpha=0.5, T=4.0, epochs=5
     from src.models.transformer_clf import TransformerClassifier
     from src.evaluation.metrics import compute_metrics
 
-    env = ctx()
+    env = ctx(require_splits=True)
     device = env["device"]
     teacher = TransformerClassifier(teacher_name, num_classes=3)
     blob = torch.load(teacher_ckpt, map_location=device, weights_only=False)
