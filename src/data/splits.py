@@ -19,14 +19,6 @@ def split_fingerprint(df: pd.DataFrame, extra: dict = None) -> str:
     return hashlib.sha256(blob).hexdigest()[:16]
 
 
-def _unit_key(row, nd_val, dup_val):
-    if nd_val is not None and not isinstance(nd_val, str) and nd_val >= 0:
-        return f"nd:{nd_val}"
-    if isinstance(dup_val, str) and dup_val != "-1":
-        return dup_val
-    return f"row:{row}"
-
-
 def _unit_keys(df: pd.DataFrame) -> pd.Series:
     """Constraint units: near-duplicate clusters and exact-duplicate groups must
     never be separated across splits. Un-grouped rows are their own unit."""

@@ -38,7 +38,9 @@ def exact_duplicate_audit(df: pd.DataFrame, assign: bool = True) -> dict:
     frame = None
     if assign:
         frame = df.copy()
-        frame["dup_group_id"] = [f"dup_{k[:12]}" if counts[k] > 1 else -1 for k in keys]
+        # None (not -1) for singletons: keeps the column uniformly string-typed
+        # so parquet serialization never sees a mixed str/int object column.
+        frame["dup_group_id"] = [f"dup_{k[:12]}" if counts[k] > 1 else None for k in keys]
     report["frame"] = frame
     return report
 
