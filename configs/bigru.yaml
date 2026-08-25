@@ -1,0 +1,18 @@
+experiment_id: bigru_attention_e3
+model: bigru_attention
+preprocessing_mode: classical
+vocab_size: 30000
+max_length: 256
+architecture:
+  embed_dim: 300
+  hidden_dim: 128
+training:
+  batch_size: 64
+  lr: 1.0e-3
+  optimizer: adam
+  loss: ce
+  epochs: 5
+  patience: 3
+  grad_accum_steps: 1
+  use_amp: true
+seed: 42

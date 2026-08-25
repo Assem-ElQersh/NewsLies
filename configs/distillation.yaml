@@ -1,0 +1,36 @@
+experiment_id: distillation_deployment
+teacher:
+  source: best_research_model
+  note: frozen after final selection; never re-tuned for distillation
+
+students:
+  bigru_attention:
+    config: configs/bigru.yaml
+    vocab: reuse teacher-era vocabulary snapshot
+  small_transformer:
+    hf_model_name: null
+    note: >
+      Optional second student. Set an explicitly verified small Arabic
+      checkpoint name before running; the repo does not invent one.
+
+distillation:
+  alpha: 0.5
+  T: 4.0
+  search_space:
+    alpha: [0.3, 0.5, 0.7]
+    T: [2.0, 4.0, 8.0]
+  lr: 2.0e-3
+  batch_size: 32
+  epochs: 5
+  patience: 3
+
+acceptance_gate: >
+  A student that preserves random-split performance but collapses on the
+  source-disjoint split is NOT acceptable. The student must retain the
+  robustness profile of the teacher as far as practical.
+
+quantization_benchmark:
+  precisions: [fp32, fp16, int8]
+  metrics: [file_size_mb, ram_mb, latency_ms_p50, macro_f1, macro_f1_disjoint]
+
+deployment_target: docs/

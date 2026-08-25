@@ -1,0 +1,22 @@
+experiment_id: camelbert_msa
+model: transformer_classifier
+display_name: CAMeLBERT-MSA
+hf_model_name: CAMeL-Lab/bert-base-arabic-camelbert-msa
+preprocessing_mode: transformer
+architecture:
+  head: cls_linear
+  dropout: 0.1
+training:
+  batch_size: 16
+  grad_accum_steps: 1
+  lr: 2.0e-5
+  optimizer: adamw
+  scheduler: {type: cosine, warmup_ratio: 0.06, min_lr_ratio: 0.0}
+  loss: ce
+  epochs: 3
+  patience: 3
+  use_amp: true
+  max_grad_norm: 1.0
+max_length: 128
+max_train_articles: null
+seed: 42

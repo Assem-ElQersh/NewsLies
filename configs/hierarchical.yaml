@@ -1,0 +1,29 @@
+experiment_id: hierarchical_h1
+model: hierarchical_classifier
+display_name: H1 frozen hierarchical
+encoder:
+  hf_model_name: aubmindlab/bert-base-arabertv02
+  freeze: true
+body_chunking:
+  chunk_len: 512
+  stride: 256
+  cache_embeddings: true
+architecture:
+  attention_hidden: 256
+  dropout: 0.1
+training:
+  batch_size: 8
+  grad_accum_steps: 2
+  lr: 1.0e-3
+  optimizer: adamw
+  scheduler: {type: cosine, warmup_ratio: 0.06, min_lr_ratio: 0.0}
+  loss: ce
+  epochs: 4
+  patience: 3
+  use_amp: true
+max_length_title: 64
+split_type: source_disjoint
+seed: 42
+gate: >
+  Build H2 (unfreeze top layers) ONLY if H1 beats flat-512 on the same
+  source-disjoint split by a practically meaningful margin.

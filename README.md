@@ -2,66 +2,221 @@
 
 # NewsLies
 
-**Arabic Fake News Detection & Source Leakage Analysis**
+**Arabic News Credibility Classification under Weak Source-Derived Supervision**
 
-![Status](https://img.shields.io/badge/STATUS-COMPLETED-green?style=for-the-badge&logo=github)  
+![Status](https://img.shields.io/badge/STATUS-RESEARCH%20SYSTEM-green?style=for-the-badge&logo=github)
 
 </div>
 
-A deep learning project that classifies Arabic news articles as **credible**, **not credible**, or **undecided**, trained on the Arabic Fake News Dataset (AFND). 
+NewsLies studies what Arabic "fake news" models trained on the **Arabic Fake News
+Dataset (AFND)** actually learn. Its central result so far: high reported accuracy is
+largely an artifact of **publisher-identifying information** in the corpus, and the
+strongest models generalize poorly to publishers unseen during training.
 
-This project explores a critical flaw in weakly-supervised news datasets: **Source Leakage**. The project proves experimentally that models achieve high accuracy on standard random splits not by learning to detect "fake news" (Factual Verification), but by identifying the publisher's writing style (Source-Induced Credibility).
+> **Terminology.** NewsLies does **not** build a factual verifier. It builds a
+> *credibility classifier under weak, source-derived supervision*:
+> - **Task A — Source-Induced Credibility**: predicting the publisher-inherited label from style/topic/artifacts (what a random split mostly measures).
+> - **Task B — Cross-Source Credibility Generalization**: predicting source-derived labels for unseen publishers (source-disjoint evaluation).
+> - **Task C — Factual Verification**: deciding whether claims are objectively true against external evidence. **Out of scope.**
 
-## Task Definition
+---
 
-To properly evaluate fake news detection, we must distinguish between two tasks:
-- **Task A: Source-Induced Credibility (The Shortcut)**: The model predicts the credibility label by recognizing *who* wrote the article (e.g., using specific vocabulary, dialect, or boilerplate text like "Reuters" or "Ennahar Online"). Since the dataset's ground truth labels were assigned at the *publisher* level by Misbar, this task reduces to source-attribution rather than fact-checking.
-- **Task B: Factual Verification (The True Goal)**: The model predicts credibility by evaluating the actual claims in the text, independent of the publisher's specific style or identity. This requires generalization to unseen publishers (evaluated via a Source-Disjoint Split).
+## 1. Problem
 
-## The Epistemological Ledger
+AFND contains 606,912 articles from 134 anonymized news sources. Each *publisher*
+was rated by the Misbar fact-checking platform as `credible`, `not credible`, or
+`undecided`, and every article inherits its publisher's label. Any model trained on
+such labels can succeed either by evaluating content or by recognizing who published it.
+Distinguishing these two strategies is the research problem.
 
-All empirical findings and deductions from the experimental pipeline are logged below:
+## 2. Task Definition
 
-| The Empirical Finding / Metric | Exact Script/Notebook Name | Analytical Deduction (What this rules out/forces next) |
+See the terminology box above. All benchmarks in this repository distinguish Task A
+(random splits) from Task B (source-disjoint and source+temporal splits).
+
+## 3. AFND Dataset
+
+| Property | Value |
+| :--- | :--- |
+| Articles | 606,912 raw |
+| Sources | 134 anonymized (`source_1` … `source_134`) |
+| Labels | publisher-level via Misbar: credible / not credible / undecided |
+| Raw article fields | `title`, `text`, `published date` |
+
+Khalil, Jarrah & Aldwairi — *Arabic Fake News Dataset (AFND)*.
+
+## 4. Weak Supervision Limitation
+
+Because labels live at the **publisher level**, article-level labels are inherited by
+weak supervision. Even a perfect Task-B classifier would learn "how credible sources
+write", not "which claims are true".
+
+## 5. Source Leakage Discovery
+
+**Verified data facts (full-corpus re-audit of raw AFND objects):**
+
+- Every article object carries `title`, `text`, and a raw `published date` field.
+- **45.4% of date values are missing/unparseable** (275,462 of 606,912) and some are
+  future-dated (max 2039); the remaining **54.6% parse as ISO-8601 timestamps**
+  (205,354 unique), spanning 2021-02 onward. Temporal evaluation therefore runs on
+  the dated subset with coverage reported explicitly — the earlier "100% missing"
+  claim was a loader bug (field name mismatch) and is withdrawn.
+- All 134 sources map to exactly one label (dataset-construction sanity check).
+- Exact/near-duplicate audit numbers are produced by stage K1 and recorded in
+  `experiments/data_audit/report.md` (duplicates are annotated and constrained at
+  split time, never silently deleted).
+
+Preliminary model findings (historical, see registry):
+
+- Article text predicts the publisher with **>98% accuracy** (TF-IDF → linear probe over 134 classes).
+- AraBERTv0.2-base reaches **≈0.878 Macro-F1** on a random split but collapses to
+  **≈0.370 Macro-F1** when no training source appears in the test set.
+- A 10-epoch disjoint run reached ≈0.381 accuracy — longer training does not fix generalization.
+
+The large random→disjoint gap **together with** strong text-to-source predictability is
+consistent with substantial publisher-dependent shortcuts. These numbers come from runs
+with differing budgets/context lengths; they are being re-measured under the controlled
+protocol below before being treated as definitive.
+
+## 6. Controlled Experimental Protocol
+
+Every comparison holds fixed: model, tokenizer, preprocessing, sequence length, batch
+size, LR schedule, epochs/stopping rule, loss, mixed precision, seed, and data policy.
+The only manipulated variables are declared (e.g., the split). Configurations live in
+`configs/*.yaml`; every run is recorded in `experiments/registry.json` with split and
+configuration fingerprints.
+
+Splits (all generated by `notebooks/02_split_generation.py`):
+- **random** 64/16/20 stratified — historical comparison only;
+- **source-disjoint** — zero publisher overlap, class-proportion tolerance enforced by constrained search;
+- **temporal** 70/10/20 chronological (enabled after the date-field audit);
+- **source+temporal** — unseen publishers AND later dates; hardest benchmark.
+
+Duplicate handling is audited, not silently destructive: exact duplicates are hashed
+(SHA-256 over normalized title+body) and near-duplicates are clustered via MinHash/LSH
+candidate retrieval + **exact Jaccard verification + connected components**. A cluster may
+never straddle two splits.
+
+## 7. Baselines
+
+E0 majority · E1 TF-IDF+SVM (word+char n-grams) · E2 LSTM · E3 BiGRU+attention.
+Historical random-split Macro-F1: 0.73 / 0.75 for E2/E3; re-running under controlled protocol.
+
+## 8. Transformer Models
+
+E4 **AraBERTv0.2-base** (`aubmindlab/bert-base-arabertv02`) and E5 **CAMeLBERT-MSA**
+(`CAMeL-Lab/bert-base-arabic-camelbert-msa`). Note: v0.2 ≠ AraBERTv2
+(`aubmindlab/bert-base-arabertv2`); we keep v0.2 for continuity and name it correctly.
+
+Context-length ablation {128, 256, 512} precedes any long-document architecture work.
+
+## 9. Hard Generalization
+
+Finalists are evaluated on all four splits; primary results:
+
+| Model | Random | Source-disjoint | Temporal | Source+temporal |
+| :--- | --- | --- | --- | --- |
+| AraBERTv0.2-base (preliminary) | 0.878 | 0.370 | pending | pending |
+
+## 10. Long-Document Modeling
+
+H1 (frozen encoder, overlapping 512-token body chunks, cross-chunk attention) is built
+**only if** flat-512 leaves a meaningful gap on the same split. Hard stop otherwise.
+
+## 11. Label-Noise Robustness
+
+Article-level flips (5/10/15%) and **source-level structured flips** (whole publishers
+relabeled), comparing CE vs label smoothing vs focal loss. Loss exploration stops if all
+losses behave equivalently.
+
+## 12. Error Analysis
+
+Two layers: (1) automatic metadata taxonomy (length, confidence, artifacts); (2) manual
+annotation of 100 correct / 100 incorrect / 100 low-confidence samples. The historical
+keyword-only taxonomy (238/500 sampled errors matching "Government & Official
+Statements") is descriptive and has not been manually validated as a causal error source.
+
+## 13. Statistical Evaluation
+
+Five seeds [13, 42, 71, 101, 202] for finalists; grouped bootstrap resampled **by source**
+for disjoint metrics (unit always reported); Δ Macro-F1 with 95% CI instead of p-values;
+overlapping CI ⇒ "no convincing evidence of superiority".
+
+## 14. Calibration
+
+Temperature scaling fitted on validation only; ECE, Brier score, reliability diagrams
+before/after (`src/evaluation/calibration.py`).
+
+## 15. Distillation
+
+Teacher = best research model (frozen). Students = BiGRU+attention and/or a compact
+transformer. Loss: `α·CE(hard) + (1−α)·KL(student‖teacher)·T²`, starting α=0.5, T=4 with a
+small search. Acceptance gate: a student that preserves random performance but loses
+disjoint robustness is rejected regardless of size savings.
+
+## 16. Deployment
+
+Browser demo (`docs/`) runs the **distilled student** in-browser via ONNX Runtime Web,
+with calibrated confidence and uncertainty display plus a standing disclaimer. FP32/FP16/
+INT8 trade-offs are benchmarked on size, RAM, latency, random Macro-F1 and disjoint Macro-F1.
+
+## 17. Results
+
+Live table maintained as controlled runs complete. Preliminary findings preserved:
+see §5 and `experiments/registry.json`.
+
+## 18. Limitations
+
+- Publisher-level weak labels bound achievable validity: no configuration of this
+  pipeline verifies factual claims (Task C).
+- Artifact sanitization removes only *detectable* publisher markers.
+- The keyword-based error taxonomy is descriptive until manual annotation completes.
+- Undecided-class semantics are dataset-specific.
+
+## 19. Reproducibility
+
+All training runs on **Kaggle** via staged notebooks (`notebooks/kaggle/`); the local
+machine is used for code, inspection and reviewing returned artifacts.
+
+```bash
+pip install -r requirements.txt          # local dev environment
+```
+
+Kaggle stages (see `notebooks/kaggle/README.md` for full contracts):
+
+| Stage | Notebook | Purpose |
 | :--- | :--- | :--- |
-| 100.0% Missing Publication Dates | `notebooks/A_data_audit.py` | Eliminates the possibility of temporal (rolling) evaluation. Models cannot use time to predict credibility in AFND. |
-| Model can predict the publisher identity with >98% accuracy based solely on article text. | `notebooks/A_data_audit.py` (Text-to-Source Leakage) | Forces the creation of a source-disjoint split. The text is highly contaminated with publisher-specific stylistic markers. |
-| AraBERT Random Split Macro-F1: 0.878 | `notebooks/B2_development_transformers.py` | Baseline transformer performance when source leakage is fully available. Shows the upper bound of Task A (Source-Induced Credibility). |
-| AraBERT Source-Disjoint Split Macro-F1: 0.370 | `notebooks/C_hard_evaluation.py` | Proves that the model fails to generalize to unseen publishers (Task B). The original high accuracy was largely an artifact of source memorization. |
-| AraBERT 10-Epoch Source-Disjoint Accuracy: 0.381 | `notebooks/AFND_End_to_End_Kaggle.ipynb` | Proves that extended 10-epoch training fails to prevent Source-Induced Credibility collapse. The model still fundamentally memorizes source artifacts. |
-| 47.6% of errors on unseen sources are caused by "Government & Official Statements" misclassification. | `notebooks/D_taxonomy_generator.py` | Forces conclusion that the model learned superficial topics (e.g., assuming government statements are always credible) rather than factual veracity. |
+| 1 | `K1_audit_and_splits.py` | raw-data audit (dates/duplicates) + all four split families → upload output as `afnd-splits-v2` |
+| 2 | `K2_baselines.py` | E0–E3 classical baselines on the random split |
+| 3 | `K3_arabert_controlled.py` | the controlled grid: one variable per run (`SPLIT`, `MAX_LEN`, `SEED`) |
+| 4 | `K4_camelbert_msa.py` | CAMeLBERT-MSA under the identical protocol |
+| 5 | `K5_eval_stats_calib_explain.py` | hard-generalization table, grouped bootstrap, Δ-F1 CIs, calibration, Integrated Gradients |
+| 6 | `K6_distill_export.py` | distillation with robustness gate + `docs/` ONNX bundle export |
 
-## Model Comparison
+The numbered `notebooks/00–15*.py` files are jupytext-compatible local/dev interfaces to
+the same `src.pipelines` functions; they also run as plain scripts. The AFND input path
+is auto-detected locally (`data/AFND/AFND`) or on Kaggle mounts.
 
-| Model (Architecture) | Random Split (Task A) Macro-F1 | Disjoint Split (Task B) Macro-F1 | Latency (Local) | Hardware Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| E0: Majority Class | ~0.33 | ~0.33 | < 1ms | Baseline |
-| E1: TF-IDF + Linear SVM | 0.72 | (not evaluated) | ~10ms | VRAM independent |
-| E2: LSTM (2x64) | 0.73 | (not evaluated) | ~20ms | Legacy System |
-| E3: BiGRU + Attention | 0.75 | (not evaluated) | ~25ms | - |
-| E4: AraBERTv0.2-base | **0.878** | **0.370** | ~150ms | Requires AMP (RTX 3050 4GB) |
-| E5: CAMeLBERT-MSA | 0.876 | (not evaluated) | ~150ms | Requires AMP (RTX 3050 4GB) |
+## 20. Citation
 
-*Note: Models evaluated on the disjoint split exhibit complete collapse, proving that the high Macro-F1 on the random split is due to source memorization.*
+```bibtex
+@misc{newslies2026,
+  title  = {NewsLies: Arabic News Credibility Classification under Weak Source-Derived Supervision},
+  author = {Assem ElQersh},
+  year   = {2026},
+  url    = {https://github.com/Assem-ElQersh/NewsLies}
+}
+```
 
-## Error Taxonomy (Source-Disjoint Split)
+---
 
-A taxonomy of 500 randomly sampled errors from the AraBERT disjoint evaluation:
+## Historical versions
 
-- **Government & Official Statements** (238 errors): The model over-associates terms like "الحكومة" (Government) or "وزير" (Minister) with credibility, failing when unseen unreliable sources quote officials or when reliable sources report on denied rumors.
-- **Source-Specific Artifacts / Boilerplate** (108 errors): Reliance on unseen publisher-specific sign-offs or location tags that the model mapped incorrectly (e.g., "النهار أونلاين").
-- **General/Ambiguous Context** (52 errors): Articles where the textual claim lacks enough context for zero-shot credibility assignment.
-- **Health & COVID-19** (44 errors): Topics like vaccines or the pandemic where the semantic boundaries of "fake" vs "real" require external knowledge grounding, which the model lacks.
-- **Crime, Economics & Sports** (58 errors): Niche topics where style varies wildly across different news networks, confounding the model.
+`research_versions/README.md` preserves the project's evolution: v1 LSTM baseline
+(discovered the leakage symptom) → v2 AraBERT + browser demo → current controlled
+research system. Nothing was deleted from Git history.
 
-## Requirements and Setup
+## License
 
-- Python 3.9+
-- `torch`, `transformers`, `pandas`, `scikit-learn`
-- NVIDIA GPU with at least 4GB VRAM (e.g., RTX 3050) is recommended for AraBERT training.
-
-To reproduce the findings:
-1. Run `notebooks/A_data_audit.py` to audit leakage and build the disjoint splits.
-2. Run `notebooks/B2_development_transformers.py` to train baseline and transformer models.
-3. Run `notebooks/C_hard_evaluation.py` to evaluate on the source-disjoint split.
-4. Run `notebooks/D_taxonomy_generator.py` to extract the error taxonomy.
+MIT — see `LICENSE`. Dataset by Khalil, Jarrah & Aldwairi; demo model weights inherit
+the licensing of their base checkpoints (AraBERT / CAMeLBERT).

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NewsLies — Arabic Fake News Detector</title>
+    <title>NewsLies — Arabic News Credibility Classifier</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -288,14 +288,16 @@
   <div class="logo">📰</div>
   <div>
     <h1>NewsLies</h1>
-    <p>Arabic Fake News & Source Leakage Demo</p>
+    <p>Arabic News Credibility Classifier · Research Demo</p>
   </div>
   <div class="badge">Model: <span>AraBERT v0.2</span></div>
 </header>
 
 <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid var(--red); border-radius: var(--radius); padding: 16px; margin: 24px auto 0; max-width: 780px; text-align: center;">
-  <strong style="color: var(--red);">⚠️ Research Warning: The Source Leakage Illusion</strong><br>
-  <span style="font-size: 0.85rem; color: var(--text);">Our research proved that models trained on the AFND dataset do not learn to fact-check. Instead, they memorize publisher writing styles. This demo model scores 70% on random data, but collapses to 37% when tested on unseen publishers. <strong>Try it yourself:</strong> Notice how the model focuses on source names and boilerplate rather than factual claims.</span>
+  <strong style="color: var(--red);">⚠️ Research Warning</strong><br>
+  <span style="font-size: 0.85rem; color: var(--text);">This model learns credibility patterns from the weakly supervised AFND dataset. It does <strong>not</strong> verify individual claims against external evidence.
+  Our research shows that apparent accuracy on this dataset is largely driven by publisher-identifying information: the research model scores high on random data (87.8% Macro-F1) but collapses on articles from unseen publishers (37.0%).
+  <strong>Treat every prediction as a research artifact about publisher style — not a fact-check.</strong></span>
 </div>
 
 <main>
@@ -335,6 +337,7 @@
       <div>
         <div class="verdict-label" id="verdict-label"></div>
         <div class="verdict-conf" id="verdict-conf"></div>
+        <div class="verdict-unc" id="verdict-unc" style="font-size:.78rem;color:var(--muted);"></div>
       </div>
     </div>
 
@@ -347,26 +350,30 @@
     <div class="info-grid">
       <div class="info-item">
         <div class="val">87.8%</div>
-        <div class="lbl">AraBERT Random F1</div>
+        <div class="lbl">Research model · Random Macro-F1</div>
       </div>
       <div class="info-item">
-        <div class="val" style="color: var(--red)">38.1%</div>
-        <div class="lbl">AraBERT Disjoint F1</div>
+        <div class="val" style="color: var(--red)">37.0%</div>
+        <div class="lbl">Research model · Unseen publishers</div>
       </div>
       <div class="info-item">
-        <div class="val">38%</div>
-        <div class="lbl">Live Demo Acc</div>
+        <div class="val">—</div>
+        <div class="lbl">Deployed student · Disjoint F1 (pending)</div>
       </div>
       <div class="info-item">
-        <div class="val">Leakage</div>
-        <div class="lbl">Primary Flaw</div>
+        <div class="val" style="font-size:.9rem; padding-top:6px;">Not a fact-checker</div>
+        <div class="lbl">Weak source-derived labels</div>
       </div>
     </div>
     <p style="margin-top:16px; font-size:.82rem; color:var(--muted); line-height:1.6;">
-      This project audited the <strong style="color:var(--text)">AFND dataset</strong> and discovered catastrophic source leakage. The models associate words like "الحكومة" (Government) or publisher names with credibility, failing entirely on unseen sources.
-      The web demo natively runs the AraBERT ONNX model in your browser via Hugging Face.
+      AFND labels were assigned at the publisher level, so models can succeed by recognizing
+      <em>who wrote an article</em> instead of evaluating its claims. This project quantifies that
+      shortcut: strong text-to-source predictability (&gt;98%) plus the random→unseen-publisher
+      collapse shown above is consistent with substantial publisher-dependent shortcuts.
+      The browser demo runs an ONNX model locally in your browser via Hugging Face tooling.
+      Predictions are calibrated (temperature scaling fitted on validation data only).
       <br><br>
-      <a href="https://github.com/Assem-ElQersh/NewsLies" target="_blank" rel="noopener">Read the full research paper on GitHub →</a>
+      <a href="https://github.com/Assem-ElQersh/NewsLies" target="_blank" rel="noopener">Read the full research on GitHub →</a>
     </p>
   </div>
 

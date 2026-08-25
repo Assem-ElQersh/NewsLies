@@ -1,0 +1,27 @@
+experiment_id: arabert_v02_base
+model: transformer_classifier
+display_name: AraBERTv0.2-base
+hf_model_name: aubmindlab/bert-base-arabertv02
+preprocessing_mode: transformer
+note: >
+  aubmindlab/bert-base-arabertv02 is AraBERT v0.2 (base). It is NOT the same
+  checkpoint as AraBERTv2 (aubmindlab/bert-base-arabertv2). We keep v0.2 for
+  continuity with preliminary experiments and name it correctly everywhere.
+architecture:
+  head: cls_linear
+  dropout: 0.1
+training:
+  batch_size: 16
+  grad_accum_steps: 1
+  lr: 2.0e-5
+  optimizer: adamw
+  scheduler: {type: cosine, warmup_ratio: 0.06, min_lr_ratio: 0.0}
+  loss: ce
+  epochs: 3
+  patience: 3
+  use_amp: true
+  max_grad_norm: 1.0
+context_lengths_controlled: [128, 256, 512]
+max_length: 128
+max_train_articles: null
+seed: 42

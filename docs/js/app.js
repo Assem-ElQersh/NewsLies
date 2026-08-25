@@ -5,9 +5,9 @@ import { AutoTokenizer } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers
 // ---------------------------------------------------------------------------
 let ortSession = null;
 let tokenizer = null;
+let TEMPERATURE = 1.0;
 
 // The exact label mapping from the PyTorch model
-// (Swap 'not credible' and 'undecided' if the UI is reversed)
 const LABEL_CLASSES = ["credible", "not credible", "undecided"];
 
 // Sample texts — real articles from the AFND dataset with high-confidence predictions
@@ -47,11 +47,19 @@ async function classify(text) {
 
   const logits = results.logits.data; // Float32Array of length 3
 
-  // Softmax
-  const maxLogit = Math.max(...logits);
-  const exps = Array.from(logits).map((x) => Math.exp(x - maxLogit));
+  // Temperature-scaled softmax (temperature fitted on validation data only)
+  const scaled = Array.from(logits, (x) => x / TEMPERATURE);
+  const maxLogit = Math.max(...scaled);
+  const exps = scaled.map((x) => Math.exp(x - maxLogit));
   const sumExp = exps.reduce((a, b) => a + b, 0);
   return exps.map((e) => e / sumExp);
+}
+
+function normalizedEntropy(probs) {
+  const n = probs.length;
+  let h = 0;
+  for (const p of probs) if (p > 0) h -= p * Math.log(p);
+  return h / Math.log(n); // 0 = certain, 1 = maximally uncertain
 }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +87,13 @@ function showResult(probs) {
   lbl.textContent = m.label;
   lbl.className   = "verdict-label " + m.cls;
   document.getElementById("verdict-conf").textContent =
-    `${(probs[topIdx] * 100).toFixed(1)}% confidence`;
+    `${(probs[topIdx] * 100).toFixed(1)}% calibrated confidence`;
+  const unc = normalizedEntropy(probs);
+  const uncLabel =
+    unc < 0.25 ? "low uncertainty" :
+    unc < 0.55 ? "moderate uncertainty" : "high uncertainty — treat with caution";
+  document.getElementById("verdict-unc").textContent =
+    `uncertainty ${unc.toFixed(2)} (${uncLabel})`;
 
   const barsEl = document.getElementById("bars");
   barsEl.innerHTML = "";
@@ -116,9 +130,18 @@ function showResult(probs) {
 // Resource loading
 // ---------------------------------------------------------------------------
 async function loadResources() {
-  setStatus("Downloading AraBERT Model (540MB)...", "loading");
+  setStatus("Downloading model…", "loading");
   try {
     ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/";
+
+    // 0. Optional calibration temperature (fitted on validation data only)
+    try {
+      const calib = await fetch("calibration.json");
+      if (calib.ok) {
+        const j = await calib.json();
+        if (typeof j.temperature === "number") TEMPERATURE = j.temperature;
+      }
+    } catch (_) { /* default T=1.0 */ }
 
     // 1. Load Hugging Face Tokenizer (AraBERT WordPiece)
     tokenizer = await AutoTokenizer.from_pretrained('AZZOMA/newslies');
@@ -129,7 +152,7 @@ async function loadResources() {
       { executionProviders: ["wasm"] }
     );
 
-    setStatus("Ready", "ready");
+    setStatus(TEMPERATURE !== 1.0 ? "Ready · calibrated" : "Ready", "ready");
     document.getElementById("classify-btn").disabled = false;
   } catch (err) {
     console.error(err);

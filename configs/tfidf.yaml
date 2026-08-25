@@ -1,0 +1,23 @@
+experiment_id: tfidf_svm_baseline
+model: tfidf_linear_svc
+preprocessing_mode: classical
+classical:
+  lowercase: false
+  remove_stopwords: false
+  stem: false
+vectorizer:
+  word:
+    max_features: 30000
+    ngram_range: [1, 2]
+    sublinear_tf: true
+  char:
+    max_features: 50000
+    analyzer: char_wb
+    ngram_range: [3, 5]
+    sublinear_tf: true
+classifier:
+  name: LinearSVC
+  C: 1.0
+  class_weight: balanced
+  max_iter: 3000
+max_train_articles: null

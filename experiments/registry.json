@@ -1,0 +1,68 @@
+{
+  "version": 2,
+  "schema": [
+    "experiment_id", "model", "model_version", "dataset", "dataset_fingerprint",
+    "cleaning_version", "split_type", "split_seed", "training_seed",
+    "tokenizer", "max_length", "train_size", "validation_size", "test_size",
+    "loss", "optimizer", "learning_rate", "scheduler", "epochs", "best_epoch",
+    "metrics", "checkpoint_hash", "git_commit", "runtime_seconds", "gpu",
+    "split_fingerprint", "configuration_hash"
+  ],
+  "_note": "Historical entries are PRELIMINARY: they were produced under differing budgets, context lengths and selection rules, and must be re-run under the controlled protocol before being treated as definitive comparisons.",
+  "experiments": {
+    "HIST-01_text_to_source_probe": {
+      "experiment_id": "HIST-01_text_to_source_probe",
+      "model": "tfidf_logreg_source_probe",
+      "dataset": "AFND",
+      "split_type": "random",
+      "metrics": {"accuracy": ">0.98 (historical, approximate)"},
+      "status": "preliminary - superseded by notebooks/03_source_leakage.py",
+      "timestamp": "2025-08 (historical)"
+    },
+    "HIST-02_arabert_random_split": {
+      "experiment_id": "HIST-02_arabert_random_split",
+      "model": "aubmindlab/bert-base-arabertv02 (AraBERTv0.2-base)",
+      "dataset": "AFND",
+      "split_type": "random",
+      "max_length": 512,
+      "epochs": 4,
+      "train_size": "~365k full random train",
+      "metrics": {"macro_f1_val": 0.878},
+      "status": "preliminary",
+      "timestamp": "2025-08 (historical)"
+    },
+    "HIST-03_arabert_disjoint_2ep_50k": {
+      "experiment_id": "HIST-03_arabert_disjoint_2ep_50k",
+      "model": "aubmindlab/bert-base-arabertv02 (AraBERTv0.2-base)",
+      "dataset": "AFND",
+      "split_type": "source_disjoint",
+      "max_length": 128,
+      "epochs": 2,
+      "train_size": 50000,
+      "metrics": {"macro_f1_test": 0.370},
+      "status": "preliminary - NOT budget-controlled vs HIST-02; do not use for causal claims without rerun via notebooks/07_arabert.py",
+      "timestamp": "2025-08 (historical)"
+    },
+    "HIST-04_arabert_disjoint_10ep_kaggle": {
+      "experiment_id": "HIST-04_arabert_disjoint_10ep_kaggle",
+      "model": "aubmindlab/bert-base-arabertv02 (AraBERTv0.2-base)",
+      "dataset": "AFND",
+      "split_type": "source_disjoint",
+      "max_length": 128,
+      "epochs": 10,
+      "train_size": 100000,
+      "metrics": {"accuracy_test": 0.381},
+      "status": "preliminary",
+      "timestamp": "2025-08 (historical)"
+    },
+    "HIST-05_taxonomy_keyword_heuristic": {
+      "experiment_id": "HIST-05_taxonomy_keyword_heuristic",
+      "model": "keyword_categorizer",
+      "dataset": "AFND source-disjoint errors (500 sample)",
+      "split_type": "source_disjoint",
+      "metrics": {"gov_official_statements_share": "238/500 sampled errors matched keyword category"},
+      "status": "descriptive heuristic, NOT manually validated as causal",
+      "timestamp": "2025-08 (historical)"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+experiment_id: lstm_baseline_e2
+model: lstm_classifier
+preprocessing_mode: classical
+vocab_size: 30000
+max_length: 256
+architecture:
+  embed_dim: 100
+  hidden_dim: 64
+  layers: 2
+  bidirectional: false
+training:
+  batch_size: 64
+  lr: 1.0e-3
+  optimizer: adam
+  loss: ce
+  epochs: 5
+  patience: 3
+  grad_accum_steps: 1
+  use_amp: true
+seed: 42

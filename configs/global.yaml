@@ -1,0 +1,41 @@
+project: NewsLies
+task: arabic_news_credibility_classification
+labels: [credible, "not credible", undecided]
+
+paths:
+  data_root: data/AFND/AFND
+  splits_dir: data/splits
+  experiments_dir: experiments
+  docs_dir: docs
+  registry: experiments/registry.json
+
+seeds:
+  development: 42
+  final_seeds: [13, 42, 71, 101, 202]
+
+splits:
+  ratios: {train: 0.64, val: 0.16, test: 0.20}
+  source_disjoint:
+    num_candidates: 500
+    class_tolerance: 0.03
+  temporal:
+    ratios: [0.70, 0.10, 0.20]
+    max_missing_date_pct: 0.05
+  source_temporal:
+    test_article_target: 0.20
+
+duplicates:
+  exact_hash_normalize_lowercase: true
+  near_dup:
+    shingle_k: 5
+    threshold: 0.8
+    num_perm: 128
+
+cleaning:
+  min_words: 10
+  max_html_density: 0.3
+
+evaluation:
+  bootstrap_n: 1000
+  bootstrap_alpha: 0.05
+  calibration_bins: 15
