@@ -191,6 +191,9 @@ def generate_splits(seed=42, out_dir=None, num_candidates=500, class_tolerance=0
     out_dir.mkdir(parents=True, exist_ok=True)
     candidates_annotated = [
         out_dir / "_annotated_full.parquet",
+        out_dir / "experiments" / "_annotated_full.parquet",
+        out_dir / "experiments" / "data_audit" / "_annotated_full.parquet",
+        out_dir / "data_audit" / "_annotated_full.parquet",
         out_dir.parent / "_annotated_full.parquet",
         ROOT / "data" / "splits" / "_annotated_full.parquet",
     ]
